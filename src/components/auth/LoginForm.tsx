@@ -52,7 +52,7 @@ const LoginForm = () => {
   return (
     <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
       <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-        Log in to HealthConnect<span className="text-healthcare-primary">NL</span>
+        Log in to Med Connecter
       </h1>
       
       <Form {...form}>

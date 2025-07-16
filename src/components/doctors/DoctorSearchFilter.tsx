@@ -8,10 +8,61 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface DoctorSearchFilterProps {
   onFilterChange: (filters: Record<string, any>) => void;
 }
+
+// Extended translations for doctor filter
+const filterTranslations = {
+  en: {
+    specialty: "Specialty",
+    allSpecialties: "All Specialties",
+    consultationType: "Consultation Type",
+    videoConsultation: "Video Consultation",
+    inPersonVisit: "In-Person Visit",
+    availability: "Availability",
+    anyTime: "Any time",
+    availableToday: "Available today",
+    thisWeek: "This week",
+    gender: "Gender",
+    any: "Any",
+    male: "Male",
+    female: "Female",
+    languages: "Languages",
+    priceRange: "Price Range (€)",
+    rating: "Rating",
+    anyRating: "Any rating",
+    verifiedDoctorsOnly: "Verified Doctors Only",
+    showFilters: "Show Filters",
+    hideFilters: "Hide Filters",
+    resetAllFilters: "Reset All Filters"
+  },
+  nl: {
+    specialty: "Specialisme",
+    allSpecialties: "Alle Specialismen",
+    consultationType: "Soort Consult",
+    videoConsultation: "Video Consult",
+    inPersonVisit: "Persoonlijk Bezoek",
+    availability: "Beschikbaarheid",
+    anyTime: "Alle tijden",
+    availableToday: "Vandaag beschikbaar",
+    thisWeek: "Deze week",
+    gender: "Geslacht",
+    any: "Alle",
+    male: "Man",
+    female: "Vrouw",
+    languages: "Talen",
+    priceRange: "Prijsbereik (€)",
+    rating: "Beoordeling",
+    anyRating: "Elke beoordeling",
+    verifiedDoctorsOnly: "Alleen Geverifieerde Artsen",
+    showFilters: "Toon Filters",
+    hideFilters: "Verberg Filters",
+    resetAllFilters: "Reset Alle Filters"
+  }
+};
 
 // Mock specialties
 const specialties = [
@@ -44,6 +95,10 @@ const languages = [
 const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const { language } = useLanguage();
+  
+  // Get translations based on current language
+  const t = filterTranslations[language as keyof typeof filterTranslations];
   
   // Set initial filter values from URL search params or defaults
   const [filters, setFilters] = useState({
@@ -145,7 +200,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
             />
           </svg>
-          {mobileFiltersOpen ? 'Hide Filters' : 'Show Filters'}
+          {mobileFiltersOpen ? t.hideFilters : t.showFilters}
         </Button>
       </div>
 
@@ -159,22 +214,22 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
             onClick={resetFilters} 
             className="text-healthcare-primary hover:text-healthcare-dark hover:bg-healthcare-light"
           >
-            Reset All Filters
+            {t.resetAllFilters}
           </Button>
         </div>
 
         {/* Specialty Filter */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Specialty</Label>
+          <Label className="text-base font-medium mb-3 block">{t.specialty}</Label>
           <Select 
             value={filters.specialty} 
             onValueChange={(value) => handleFilterChange('specialty', value)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select specialty" />
+              <SelectValue placeholder={t.specialty} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all-specialties">All Specialties</SelectItem>
+              <SelectItem value="all-specialties">{t.allSpecialties}</SelectItem>
               {specialties.map((specialty) => (
                 <SelectItem key={specialty} value={specialty.toLowerCase()}>
                   {specialty}
@@ -186,7 +241,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
 
         {/* Consultation Type */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Consultation Type</Label>
+          <Label className="text-base font-medium mb-3 block">{t.consultationType}</Label>
           <div className="space-y-2">
             <div className="flex items-center">
               <Checkbox 
@@ -195,7 +250,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
                 onCheckedChange={() => toggleConsultationType('video')}
               />
               <Label htmlFor="consultationType-video" className="ml-2 text-sm font-normal">
-                Video Consultation
+                {t.videoConsultation}
               </Label>
             </div>
             <div className="flex items-center">
@@ -205,7 +260,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
                 onCheckedChange={() => toggleConsultationType('in-person')}
               />
               <Label htmlFor="consultationType-in-person" className="ml-2 text-sm font-normal">
-                In-Person Visit
+                {t.inPersonVisit}
               </Label>
             </div>
           </div>
@@ -213,61 +268,61 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
 
         {/* Availability Filter */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Availability</Label>
+          <Label className="text-base font-medium mb-3 block">{t.availability}</Label>
           <RadioGroup 
             value={filters.availability} 
             onValueChange={(value) => handleFilterChange('availability', value)}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="any" id="availability-any" />
-              <Label htmlFor="availability-any" className="text-sm font-normal">Any time</Label>
+              <Label htmlFor="availability-any" className="text-sm font-normal">{t.anyTime}</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="today" id="availability-today" />
-              <Label htmlFor="availability-today" className="text-sm font-normal">Available today</Label>
+              <Label htmlFor="availability-today" className="text-sm font-normal">{t.availableToday}</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="this-week" id="availability-week" />
-              <Label htmlFor="availability-week" className="text-sm font-normal">This week</Label>
+              <Label htmlFor="availability-week" className="text-sm font-normal">{t.thisWeek}</Label>
             </div>
           </RadioGroup>
         </div>
 
         {/* Gender Filter */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Gender</Label>
+          <Label className="text-base font-medium mb-3 block">{t.gender}</Label>
           <RadioGroup 
             value={filters.gender} 
             onValueChange={(value) => handleFilterChange('gender', value)}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="any" id="gender-any" />
-              <Label htmlFor="gender-any" className="text-sm font-normal">Any</Label>
+              <Label htmlFor="gender-any" className="text-sm font-normal">{t.any}</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="male" id="gender-male" />
-              <Label htmlFor="gender-male" className="text-sm font-normal">Male</Label>
+              <Label htmlFor="gender-male" className="text-sm font-normal">{t.male}</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="female" id="gender-female" />
-              <Label htmlFor="gender-female" className="text-sm font-normal">Female</Label>
+              <Label htmlFor="gender-female" className="text-sm font-normal">{t.female}</Label>
             </div>
           </RadioGroup>
         </div>
 
         {/* Language Filter */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Languages</Label>
+          <Label className="text-base font-medium mb-3 block">{t.languages}</Label>
           <div className="space-y-2">
-            {languages.map((language) => (
-              <div key={language} className="flex items-center">
+            {languages.map((lang) => (
+              <div key={lang} className="flex items-center">
                 <Checkbox 
-                  id={`language-${language}`}
-                  checked={filters.languages.includes(language)}
-                  onCheckedChange={() => toggleLanguage(language)}
+                  id={`language-${lang}`}
+                  checked={filters.languages.includes(lang)}
+                  onCheckedChange={() => toggleLanguage(lang)}
                 />
-                <Label htmlFor={`language-${language}`} className="ml-2 text-sm font-normal">
-                  {language}
+                <Label htmlFor={`language-${lang}`} className="ml-2 text-sm font-normal">
+                  {lang}
                 </Label>
               </div>
             ))}
@@ -277,7 +332,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
         {/* Price Range */}
         <div>
           <div className="flex justify-between items-center mb-3">
-            <Label className="text-base font-medium">Price Range (€)</Label>
+            <Label className="text-base font-medium">{t.priceRange}</Label>
             <div className="text-sm">
               €{filters.priceRange[0]} - €{filters.priceRange[1]}
             </div>
@@ -295,14 +350,14 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
 
         {/* Rating Filter */}
         <div>
-          <Label className="text-base font-medium mb-3 block">Rating</Label>
+          <Label className="text-base font-medium mb-3 block">{t.rating}</Label>
           <RadioGroup 
             value={filters.rating} 
             onValueChange={(value) => handleFilterChange('rating', value)}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="any" id="rating-any" />
-              <Label htmlFor="rating-any" className="text-sm font-normal">Any rating</Label>
+              <Label htmlFor="rating-any" className="text-sm font-normal">{t.anyRating}</Label>
             </div>
             {[4, 3].map((rating) => (
               <div key={rating} className="flex items-center space-x-2">
@@ -336,7 +391,7 @@ const DoctorSearchFilter = ({ onFilterChange }: DoctorSearchFilterProps) => {
               onCheckedChange={(checked) => handleFilterChange('verifiedOnly', checked)}
             />
             <Label htmlFor="verified-only" className="ml-2 text-sm font-normal">
-              Verified Doctors Only
+              {t.verifiedDoctorsOnly}
             </Label>
           </div>
         </div>

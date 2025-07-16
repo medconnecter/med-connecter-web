@@ -66,6 +66,11 @@ const Footer = () => {
                   FAQs
                 </Link>
               </li>
+              <li>
+                <Link to="/reimbursement-and-costs" className="text-gray-600 hover:text-healthcare-primary">
+                  Reimbursement and Costs
+                </Link>
+              </li>
             </ul>
           </div>
 

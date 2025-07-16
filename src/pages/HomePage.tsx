@@ -67,11 +67,10 @@ const HomePage = () => {
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 md:pr-12 mb-12 md:mb-0">
               <h1 className="text-4xl md:text-5xl font-bold mb-6">
-                Connect with Top Medical Specialists in the Netherlands
+                Book a consultation with a medical specialist without waiting time - online or on location
               </h1>
               <p className="text-xl mb-8 opacity-90">
-                Book video consultations or in-person appointments with the best specialists across the country. 
-                Get the care you deserve, when and where you need it.
+                With or without referral. Fast, safe and reliable. 
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link to="/find-doctors">
@@ -88,8 +87,8 @@ const HomePage = () => {
             </div>
             <div className="md:w-1/2">
               <img 
-                src="https://images.unsplash.com/photo-1651008376811-b90baee60c1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
-                alt="Doctor consultation" 
+                src="/images/doctor-consultation-illustration.jpg" 
+                alt="Doctor consultation illustration" 
                 className="rounded-lg shadow-xl w-full h-auto"
               />
             </div>
@@ -100,7 +99,7 @@ const HomePage = () => {
       {/* How It Works Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">How HealthConnectNL Works</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">How Med Connecter Works</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Step 1 */}
@@ -223,7 +222,7 @@ const HomePage = () => {
                   ))}
                 </div>
                 <p className="italic mb-4 text-gray-600">
-                  "As an expat, finding English-speaking specialists was always a challenge. HealthConnectNL made it easy to find doctors who speak my language and accept my insurance."
+                  "As an expat, finding English-speaking specialists was always a challenge. Med Connecter made it easy to find doctors who speak my language and accept my insurance."
                 </p>
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-gray-300 rounded-full mr-3"></div>
@@ -278,6 +277,7 @@ const HomePage = () => {
               <Button variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-healthcare-primary font-medium text-lg px-8 py-6">
                 Create Your Account
               </Button>
+
             </Link>
           </div>
         </div>

@@ -11,10 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageSwitcher from './LanguageSwitcher';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -31,21 +35,27 @@ const Header = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8">
           <Link to="/find-doctors" className="text-gray-600 hover:text-healthcare-primary transition-colors">
-            Find Specialists
+            {t('findSpecialists')}
           </Link>
           <Link to="/how-it-works" className="text-gray-600 hover:text-healthcare-primary transition-colors">
-            How it Works
+            {t('howItWorks')}
+          </Link>
+          <Link to="/why-medconnecter" className="text-gray-600 hover:text-healthcare-primary transition-colors font-semibold">
+            Why MedConnecter
           </Link>
           <Link to="/about" className="text-gray-600 hover:text-healthcare-primary transition-colors">
-            About Us
+            {t('aboutUs')}
           </Link>
           <Link to="/contact" className="text-gray-600 hover:text-healthcare-primary transition-colors">
-            Contact
+            {t('contact')}
           </Link>
         </nav>
 
         {/* User Menu or Auth Buttons */}
         <div className="hidden md:flex items-center space-x-4">
+          {/* Language Switcher */}
+          <LanguageSwitcher />
+          
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -59,20 +69,20 @@ const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('myAccount')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="w-full cursor-pointer">Dashboard</Link>
+                  <Link to="/dashboard" className="w-full cursor-pointer">{t('dashboard')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="w-full cursor-pointer">Profile</Link>
+                  <Link to="/profile" className="w-full cursor-pointer">{t('profile')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/appointments" className="w-full cursor-pointer">My Appointments</Link>
+                  <Link to="/appointments" className="w-full cursor-pointer">{t('myAppointments')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-red-500 cursor-pointer">
-                  Logout
+                  {t('logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -80,12 +90,12 @@ const Header = () => {
             <>
               <Link to="/login">
                 <Button variant="outline" className="border-healthcare-primary text-healthcare-primary hover:bg-healthcare-light">
-                  Log in
+                  {t('login')}
                 </Button>
               </Link>
               <Link to="/register">
                 <Button className="bg-healthcare-primary text-white hover:bg-healthcare-dark">
-                  Register
+                  {t('register')}
                 </Button>
               </Link>
             </>
@@ -93,33 +103,36 @@ const Header = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <button
-          className="md:hidden text-gray-500 focus:outline-none"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="md:hidden flex items-center space-x-2">
+          <LanguageSwitcher />
+          <button
+            className="text-gray-500 focus:outline-none"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            {isMobileMenuOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            )}
-          </svg>
-        </button>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {isMobileMenuOpen ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -132,28 +145,35 @@ const Header = () => {
                 className="text-gray-600 py-2 hover:text-healthcare-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Find Specialists
+                {t('findSpecialists')}
               </Link>
               <Link 
                 to="/how-it-works" 
                 className="text-gray-600 py-2 hover:text-healthcare-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                How it Works
+                {t('howItWorks')}
+              </Link>
+              <Link 
+                to="/why-medconnecter" 
+                className="text-gray-600 py-2 hover:text-healthcare-primary font-semibold"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Why MedConnecter
               </Link>
               <Link 
                 to="/about" 
                 className="text-gray-600 py-2 hover:text-healthcare-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                About Us
+                {t('aboutUs')}
               </Link>
               <Link 
                 to="/contact" 
                 className="text-gray-600 py-2 hover:text-healthcare-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Contact
+                {t('contact')}
               </Link>
 
               {user ? (
@@ -164,21 +184,21 @@ const Header = () => {
                       className="block py-2 text-gray-600 hover:text-healthcare-primary"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Dashboard
+                      {t('dashboard')}
                     </Link>
                     <Link 
                       to="/profile" 
                       className="block py-2 text-gray-600 hover:text-healthcare-primary"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Profile
+                      {t('profile')}
                     </Link>
                     <Link 
                       to="/appointments" 
                       className="block py-2 text-gray-600 hover:text-healthcare-primary"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      My Appointments
+                      {t('myAppointments')}
                     </Link>
                     <button
                       onClick={() => {
@@ -187,7 +207,7 @@ const Header = () => {
                       }}
                       className="w-full text-left py-2 text-red-500 hover:text-red-700"
                     >
-                      Logout
+                      {t('logout')}
                     </button>
                   </div>
                 </>
@@ -199,7 +219,7 @@ const Header = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Button variant="outline" className="w-full border-healthcare-primary text-healthcare-primary">
-                      Log in
+                      {t('login')}
                     </Button>
                   </Link>
                   <Link 
@@ -208,7 +228,7 @@ const Header = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Button className="w-full bg-healthcare-primary text-white">
-                      Register
+                      {t('register')}
                     </Button>
                   </Link>
                 </div>
