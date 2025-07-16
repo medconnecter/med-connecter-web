@@ -26,6 +26,11 @@ const registerSchema = z.object({
   email: z.string().email({
     message: 'Please enter a valid email address',
   }),
+  phone: z.string().min(10, { message: 'Phone number is required' }).regex(/^\+?[0-9]{10,15}$/, {
+    message: 'Please enter a valid phone number',
+  }),
+  firstName: z.string().min(1, { message: 'First name is required' }),
+  lastName: z.string().min(1, { message: 'Last name is required' }),
   password: z.string().min(8, {
     message: 'Password must be at least 8 characters long',
   }),
@@ -54,6 +59,9 @@ const RegisterForm = () => {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: '',
+      phone: '',
+      firstName: '',
+      lastName: '',
       password: '',
       confirmPassword: '',
       role: 'patient',
@@ -64,8 +72,16 @@ const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsSubmitting(true);
     try {
-      await register(data.email, data.password, data.role);
-      navigate('/onboarding');
+      await register(
+        data.email,
+        data.password,
+        data.role,
+        data.phone,
+        data.firstName,
+        data.lastName,
+        { street: '', city: '', state: '', country: '', postalCode: '' }
+      );
+      navigate('/verify-account', { state: { email: data.email, phone: data.phone } });
     } catch (error) {
       // Error is handled by the auth context
       console.error(error);
@@ -95,6 +111,51 @@ const RegisterForm = () => {
                     autoComplete="email"
                     {...field} 
                   />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone Number</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g. +1234567890"
+                    type="tel"
+                    autoComplete="tel"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="First Name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Last Name" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

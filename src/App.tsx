@@ -19,6 +19,10 @@ import AboutPage from "./pages/AboutPage";
 import ReimbursementAndCostsPage from "./pages/ReimbursementAndCostsPage";
 import WhyMedConnecterPage from "./pages/WhyMedConnecterPage";
 import NotFound from "./pages/NotFound";
+import VerifyAccountPage from "./pages/VerifyAccountPage";
+import AccountCreatedPage from "./pages/AccountCreatedPage";
+import PatientDashboard from "./components/dashboard/PatientDashboard";
+import DoctorDashboard from "./components/dashboard/DoctorDashboard";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +46,10 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/reimbursement-and-costs" element={<ReimbursementAndCostsPage />} />
               <Route path="/why-medconnecter" element={<WhyMedConnecterPage />} />
+              <Route path="/verify-account" element={<VerifyAccountPage />} />
+              <Route path="/account-created" element={<AccountCreatedPage />} />
+              <Route path="/patient-dashboard" element={<PatientDashboard />} />
+              <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

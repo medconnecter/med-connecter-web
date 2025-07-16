@@ -21,6 +21,7 @@ interface AuthContextType {
   register: (email: string, password: string, role: 'patient' | 'doctor') => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 // Create the AuthContext
@@ -46,6 +47,15 @@ const mockUsers = [
     isEmailVerified: true,
     isMobileVerified: true,
   },
+  {
+    id: '3',
+    email: 'paragkhandait94@hotmail.com',
+    password: 'parag1234',
+    displayName: 'Parag Khandait',
+    role: 'patient' as const,
+    isEmailVerified: true,
+    isMobileVerified: false,
+  }
 ];
 
 // AuthProvider component
@@ -188,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     register,
     resetPassword,
     updateUserProfile,
+    setUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
