@@ -103,9 +103,57 @@ const LoginForm = () => {
             window.dispatchEvent(new Event('storage'));
           } catch (e) { /* ignore */ }
         }
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1200);
+        // Store token
+        if (res.token) {
+          localStorage.setItem('access_token', res.token);
+          if (res.user && res.user.role === 'doctor') {
+            // Check doctor status
+            fetch(`${API_BASE_URL}/api/v1/doctors/status/${res.user.id}`, {
+              method: 'GET',
+              headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${res.token}`,
+              },
+            })
+              .then(resp => resp.json())
+              .then(statusRes => {
+                if (statusRes.status === 'DETAILS_REQUIRED') {
+                  navigate('/additional-details');
+                } else if (statusRes.status === 'DETAILS_UPDATED') {
+                  alert('Your verification is pending. Please wait for approval.');
+                } else if (statusRes.status === 'VERIFIED') {
+                  navigate('/dashboard');
+                } else if (statusRes.status === 'rejected') {
+                  alert('Your verification is rejected. Please contact support.');
+                }
+              })
+              .catch(err => {
+                console.error('Status fetch error:', err);
+                navigate('/dashboard');
+              });
+          } else {
+            // Patient: fetch profile and go to dashboard
+            fetch(`${API_BASE_URL}/api/v1/users/profile`, {
+              method: 'GET',
+              headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${res.token}`,
+              },
+            })
+              .then(resp => resp.json())
+              .then(profile => {
+                console.log('User profile:', profile);
+                navigate('/dashboard');
+              })
+              .catch(err => {
+                console.error('Profile fetch error:', err);
+                // navigate('/dashboard');
+              });
+          }
+        }
+        // setTimeout(() => {
+        //   navigate('/dashboard');
+        // }, 1200);
       } else {
         setError(res.message || 'OTP verification failed.');
       }

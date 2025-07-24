@@ -31,10 +31,16 @@ const registerSchema = z.object({
   }),
   firstName: z.string().min(1, { message: 'First name is required' }),
   lastName: z.string().min(1, { message: 'Last name is required' }),
-  password: z.string().min(8, {
-    message: 'Password must be at least 8 characters long',
+  dob: z.string().min(1, { message: 'Date of birth is required' }),
+  gender: z.enum(['male', 'female', 'other'], { required_error: 'Please select a gender' }),
+  address: z.object({
+    street: z.string().min(1, { message: 'Street is required' }),
+    city: z.string().min(1, { message: 'City is required' }),
+    state: z.string().min(1, { message: 'State is required' }),
+    country: z.string().min(1, { message: 'Country is required' }),
+    postalCode: z.string().min(1, { message: 'Postal code is required' }),
   }),
-  confirmPassword: z.string(),
+  languages: z.array(z.string().min(1, { message: 'Language cannot be empty' })).min(1, { message: 'Please enter at least one language' }),
   role: z.enum(['patient', 'doctor'], {
     required_error: 'Please select an account type',
   }),
@@ -43,9 +49,6 @@ const registerSchema = z.object({
   }).refine(val => val === true, {
     message: 'You must agree to the terms and conditions',
   })
-}).refine((data) => data.password === data.confirmPassword, {
-  path: ['confirmPassword'],
-  message: 'Passwords do not match',
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -62,8 +65,16 @@ const RegisterForm = () => {
       phone: '',
       firstName: '',
       lastName: '',
-      password: '',
-      confirmPassword: '',
+      dob: '',
+      gender: 'male',
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        country: '',
+        postalCode: '',
+      },
+      languages: [],
       role: 'patient',
       agreeToTerms: false,
     },
@@ -74,12 +85,14 @@ const RegisterForm = () => {
     try {
       await register(
         data.email,
-        data.password,
         data.role,
         data.phone,
         data.firstName,
         data.lastName,
-        { street: '', city: '', state: '', country: '', postalCode: '' }
+        data.dob,
+        data.gender,
+        data.address,
+        data.languages
       );
       navigate('/verify-account', { state: { email: data.email, phone: data.phone } });
     } catch (error) {
@@ -164,17 +177,33 @@ const RegisterForm = () => {
 
           <FormField
             control={form.control}
-            name="password"
+            name="dob"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>Date of Birth</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="••••••••" 
-                    type="password" 
-                    autoComplete="new-password"
-                    {...field} 
+                  <Input
+                    type="date"
+                    placeholder="Select date of birth"
+                    {...field}
                   />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Gender</FormLabel>
+                <FormControl>
+                  <select {...field} className="w-full border rounded px-3 py-2">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -183,16 +212,81 @@ const RegisterForm = () => {
 
           <FormField
             control={form.control}
-            name="confirmPassword"
+            name="address.street"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Confirm Password</FormLabel>
+                <FormLabel>Street</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="••••••••" 
-                    type="password" 
-                    autoComplete="new-password"
-                    {...field} 
+                  <Input placeholder="Street" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address.city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <FormControl>
+                  <Input placeholder="City" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address.state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State</FormLabel>
+                <FormControl>
+                  <Input placeholder="State" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address.country"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Country</FormLabel>
+                <FormControl>
+                  <Input placeholder="Country" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address.postalCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Postal Code</FormLabel>
+                <FormControl>
+                  <Input placeholder="Postal Code" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="languages"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Languages Spoken</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g. English, Dutch, Hindi"
+                    value={field.value.join(', ')}
+                    onChange={e => field.onChange(e.target.value.split(',').map(lang => lang.trim()).filter(Boolean))}
                   />
                 </FormControl>
                 <FormMessage />

@@ -7,6 +7,26 @@ import DoctorCard from '@/components/doctors/DoctorCard';
 import DoctorSearchFilter from '@/components/doctors/DoctorSearchFilter';
 import Layout from '@/components/layout/Layout';
 
+// Helper to map backend doctor object to frontend format
+const mapBackendDoctorToFrontend = (doc: any) => {
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+  return {
+    id: doc._id,
+    name: "Dr. Specialist", // fallback
+    specialty: doc.specializations?.join(', ') || "General Specialist",
+    hospital: doc.clinicLocation?.address || "Private Clinic",
+    rating: doc.rating || 0,
+    reviewCount: doc.totalReviews || 0,
+    languages: doc.languages?.length ? doc.languages : ["Dutch"], // fallback
+    availableToday: (doc.availability || []).some((a: any) => a.day.toLowerCase() === today),
+    consultationFee: doc.consultationFee || 0,
+    photoUrl: "https://randomuser.me/api/portraits/lego/1.jpg", // Default avatar
+    verified: doc.verificationStatus === "verified",
+    gender: null,
+  };
+};
+
 // Mock doctor data
 const mockDoctors = [
   {
@@ -103,6 +123,9 @@ const FindDoctorsPage = () => {
   const [filteredDoctors, setFilteredDoctors] = useState(mockDoctors);
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
 
+  useEffect(() => {
+    fetchDoctorsFromBackend();
+  }, []);
   // Effect to filter doctors based on URL search params on page load
   useEffect(() => {
     const specialty = searchParams.get('specialty');
@@ -201,6 +224,23 @@ const FindDoctorsPage = () => {
     setSortBy(value);
     setFilteredDoctors(sortDoctors(filteredDoctors, value));
   };
+
+    // Fetch from backend API and append to current list
+    const fetchDoctorsFromBackend = async () => {
+      try {
+        const response = await fetch('http://localhost:8085/api/v1/doctors?page=1&limit=10');
+        const data = await response.json();
+  
+        const newDoctors = data.doctors.map(mapBackendDoctorToFrontend);
+        const updatedDoctors = [...doctors, ...newDoctors];
+  
+        setDoctors(updatedDoctors);
+        const updatedFiltered = sortDoctors(updatedDoctors, sortBy);
+        setFilteredDoctors(updatedFiltered);
+      } catch (error) {
+        console.error("Failed to fetch backend doctors:", error);
+      }
+    };
 
   return (
     <Layout>

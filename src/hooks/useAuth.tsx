@@ -22,18 +22,20 @@ export const useAuth = () => {
    */
   const register = async (
     email: string,
-    password: string,
     role: string,
     phone: string,
     firstName: string,
     lastName: string,
+    dob: string,
+    gender: string,
     address: {
       street: string;
       city: string;
       state: string;
       country: string;
       postalCode: string;
-    }
+    },
+    languages: string[]
   ) => {
     // Split phone into countryCode and number
     let countryCode = '';
@@ -53,8 +55,11 @@ export const useAuth = () => {
       },
       firstName,
       lastName,
+      dob,
+      gender,
       role,
-      address
+      address,
+      languages,
     };
     console.log('Register payload:', payload);
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {

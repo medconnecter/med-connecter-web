@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/hooks/useAuth';
+import { API_BASE_URL } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Mock appointment data for doctor dashboard
 const todayAppointments = [
@@ -84,6 +86,123 @@ const statistics = {
 const DoctorDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [editProfile, setEditProfile] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user || user.role !== 'doctor') return;
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch(`${API_BASE_URL}/api/v1/doctors/profile`, {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        setDoctorProfile(data);
+        setEditProfile({
+          ...data.doctor,
+          education: data.doctor.education || [],
+          training: data.doctor.training || [],
+          specializations: data.doctor.specializations || [],
+          awards: data.doctor.awards || [],
+          publications: data.doctor.publications || [],
+          clinicLocation: data.doctor.clinicLocation || { address: '', city: '', postalCode: '', country: '' },
+        });
+      } catch (err) {
+        setDoctorProfile(null);
+        setEditProfile(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  const handleArrayChange = (field: string, index: number, subfield: string, value: string) => {
+    setEditProfile((prev: any) => {
+      const arr = [...(prev[field] || [])];
+      arr[index] = { ...arr[index], [subfield]: value };
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const handleArrayAdd = (field: string, emptyObj: any) => {
+    setEditProfile((prev: any) => ({ ...prev, [field]: [...(prev[field] || []), emptyObj] }));
+  };
+
+  const handleArrayRemove = (field: string, index: number) => {
+    setEditProfile((prev: any) => {
+      const arr = [...(prev[field] || [])];
+      arr.splice(index, 1);
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const handleFieldChange = (field: string, value: any) => {
+    setEditProfile((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleClinicLocationChange = (subfield: string, value: string) => {
+    setEditProfile((prev: any) => ({
+      ...prev,
+      clinicLocation: { ...prev.clinicLocation, [subfield]: value },
+    }));
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const payload = {
+        ...editProfile.doctor,
+        // Only send editable fields
+        education: editProfile.doctor.education,
+        training: editProfile.doctor.training,
+        specializations: editProfile.doctor.specializations,
+        awards: editProfile.doctor.awards,
+        publications: editProfile.doctor.publications,
+        clinicLocation: editProfile.doctor.clinicLocation,
+      };
+      const res = await fetch(`${API_BASE_URL}/api/v1/doctors/profile`, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success('Profile updated successfully!');
+        setDoctorProfile(editProfile);
+      } else {
+        toast.error('Failed to update profile.');
+      }
+    } catch (err) {
+      toast.error('Failed to update profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center min-h-[60vh]">Loading profile...</div>;
+  }
+
+  if (!doctorProfile) {
+    return <div className="flex justify-center items-center min-h-[60vh] text-red-500">Failed to load profile.</div>;
+  }
+
+  // Use doctorProfile for all doctor-specific fields
+  const profile = doctorProfile.doctor;
 
   // Format date display
   const formatDate = (dateString: string) => {
@@ -247,11 +366,11 @@ const DoctorDashboard = () => {
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={user?.photoURL} />
                       <AvatarFallback className="bg-healthcare-primary text-white">
-                        {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'D'}
+                        {profile.userId.firstName?.charAt(0) || user?.email?.charAt(0) || 'D'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <CardTitle>Welcome, Dr. {user?.displayName || 'Smith'}</CardTitle>
+                      <CardTitle>Welcome, Dr. {profile.userId.firstName} {profile.userId.lastName}</CardTitle>
                       <CardDescription>Your practice dashboard overview</CardDescription>
                     </div>
                   </div>
@@ -489,7 +608,192 @@ const DoctorDashboard = () => {
                 <CardDescription>Manage your profile and preferences</CardDescription>
               </CardHeader>
               <CardContent>
-                <p>Settings content will go here...</p>
+                <form className="space-y-4" onSubmit={handleSave}>
+                  {/* Read-only fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">First Name</label>
+                      <input value={profile.userId.firstName} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">Last Name</label>
+                      <input value={profile.userId.lastName} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">Email</label>
+                      <input value={user?.email} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">Phone</label>
+                      <input value={profile.userId.phone.countryCode+profile.userId.phone.number} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">Gender</label>
+                      <input value={profile.userId.gender} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600">Date of Birth</label>
+                      <input value={profile.userId.dob} readOnly className="w-full border rounded px-3 py-2 bg-gray-100" />
+                    </div>
+                  </div>
+                  {/* Editable fields */}
+                  <div className="mt-6">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Education</label>
+                    {editProfile.education.map((edu: any, idx: number) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Degree"
+                          value={edu.degree}
+                          onChange={e => handleArrayChange('education', idx, 'degree', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Institution"
+                          value={edu.institution}
+                          onChange={e => handleArrayChange('education', idx, 'institution', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Year"
+                          value={edu.year}
+                          onChange={e => handleArrayChange('education', idx, 'year', e.target.value)}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleArrayRemove('education', idx)}>-</Button>
+                      </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleArrayAdd('education', { degree: '', institution: '', year: '' })}>+ Add Education</Button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Training</label>
+                    {editProfile.training.map((tr: any, idx: number) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Name"
+                          value={tr.name}
+                          onChange={e => handleArrayChange('training', idx, 'name', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Institution"
+                          value={tr.institution}
+                          onChange={e => handleArrayChange('training', idx, 'institution', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Year"
+                          value={tr.year}
+                          onChange={e => handleArrayChange('training', idx, 'year', e.target.value)}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleArrayRemove('training', idx)}>-</Button>
+                      </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleArrayAdd('training', { name: '', institution: '', year: '' })}>+ Add Training</Button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Specialization</label>
+                    {editProfile.specializations.map((spec: string, idx: number) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Specialization"
+                          value={spec}
+                          onChange={e => handleArrayChange('specializations', idx, '', e.target.value)}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleArrayRemove('specializations', idx)}>-</Button>
+                      </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleArrayAdd('specializations', '')}>+ Add Specialization</Button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Awards</label>
+                    {editProfile.awards.map((aw: any, idx: number) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Name"
+                          value={aw.name}
+                          onChange={e => handleArrayChange('awards', idx, 'name', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Year"
+                          value={aw.year}
+                          onChange={e => handleArrayChange('awards', idx, 'year', e.target.value)}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleArrayRemove('awards', idx)}>-</Button>
+                      </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleArrayAdd('awards', { name: '', year: '' })}>+ Add Award</Button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Publications</label>
+                    {editProfile.publications.map((pub: any, idx: number) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Title"
+                          value={pub.title}
+                          onChange={e => handleArrayChange('publications', idx, 'title', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Journal"
+                          value={pub.journal}
+                          onChange={e => handleArrayChange('publications', idx, 'journal', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Year"
+                          value={pub.year}
+                          onChange={e => handleArrayChange('publications', idx, 'year', e.target.value)}
+                        />
+                        <input
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="URL"
+                          value={pub.url}
+                          onChange={e => handleArrayChange('publications', idx, 'url', e.target.value)}
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleArrayRemove('publications', idx)}>-</Button>
+                      </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleArrayAdd('publications', { title: '', journal: '', year: '', url: '' })}>+ Add Publication</Button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Clinic Location</label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        className="border rounded px-2 py-1 text-xs"
+                        placeholder="Address"
+                        value={editProfile.clinicLocation.address}
+                        onChange={e => handleClinicLocationChange('address', e.target.value)}
+                      />
+                      <input
+                        className="border rounded px-2 py-1 text-xs"
+                        placeholder="City"
+                        value={editProfile.clinicLocation.city}
+                        onChange={e => handleClinicLocationChange('city', e.target.value)}
+                      />
+                      <input
+                        className="border rounded px-2 py-1 text-xs"
+                        placeholder="Postal Code"
+                        value={editProfile.clinicLocation.postalCode}
+                        onChange={e => handleClinicLocationChange('postalCode', e.target.value)}
+                      />
+                      <input
+                        className="border rounded px-2 py-1 text-xs"
+                        placeholder="Country"
+                        value={editProfile.clinicLocation.country}
+                        onChange={e => handleClinicLocationChange('country', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {/* Save button for editable fields */}
+                  <div className="mt-6">
+                    <Button className="bg-healthcare-primary hover:bg-healthcare-dark" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
           )}
