@@ -13,7 +13,7 @@ const mapBackendDoctorToFrontend = (doc: any) => {
 
   return {
     id: doc._id,
-    name: "Dr. Specialist", // fallback
+    name: doc.userId.firstName + " " + doc.userId.lastName,
     specialty: doc.specializations?.join(', ') || "General Specialist",
     hospital: doc.clinicLocation?.address || "Private Clinic",
     rating: doc.rating || 0,
@@ -22,7 +22,7 @@ const mapBackendDoctorToFrontend = (doc: any) => {
     availableToday: (doc.availability || []).some((a: any) => a.day.toLowerCase() === today),
     consultationFee: doc.consultationFee || 0,
     photoUrl: "https://randomuser.me/api/portraits/lego/1.jpg", // Default avatar
-    verified: doc.verificationStatus === "verified",
+    verified: doc.status === "VERIFIED",
     gender: null,
   };
 };

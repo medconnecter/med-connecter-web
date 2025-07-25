@@ -121,7 +121,7 @@ const LoginForm = () => {
                   navigate('/additional-details');
                 } else if (statusRes.status === 'DETAILS_UPDATED') {
                   alert('Your verification is pending. Please wait for approval.');
-                } else if (statusRes.status === 'VERIFIED') {
+                } else if (statusRes.status === 'verified') {
                   navigate('/dashboard');
                 } else if (statusRes.status === 'rejected') {
                   alert('Your verification is rejected. Please contact support.');
