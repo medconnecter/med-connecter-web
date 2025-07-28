@@ -20,6 +20,13 @@ import {
   RadioGroupItem,
 } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from '@/hooks/useAuth';
 
 const registerSchema = z.object({
@@ -57,6 +64,17 @@ const RegisterForm = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    error: string;
+    code: string;
+    details: any;
+  }>({
+    isOpen: false,
+    error: '',
+    code: '',
+    details: {}
+  });
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -83,7 +101,7 @@ const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsSubmitting(true);
     try {
-      await register(
+      const result = await register(
         data.email,
         data.role,
         data.phone,
@@ -94,291 +112,344 @@ const RegisterForm = () => {
         data.address,
         data.languages
       );
-      navigate('/verify-account', { state: { email: data.email, phone: data.phone } });
+      
+      if (result.success === false) {
+        // Show error modal
+        setErrorModal({
+          isOpen: true,
+          error: result.error,
+          code: result.code,
+          details: result.details
+        });
+      } else {
+        // Success - navigate to verification
+        navigate('/verify-account', { state: { email: data.email, phone: data.phone } });
+      }
     } catch (error) {
-      // Error is handled by the auth context
-      console.error(error);
+      // Handle unexpected errors
+      setErrorModal({
+        isOpen: true,
+        error: 'An unexpected error occurred. Please try again.',
+        code: 'UNEXPECTED_ERROR',
+        details: {}
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
-      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-        Create your Med Connecter Account
-      </h1>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="your.email@example.com" 
-                    type="email" 
-                    autoComplete="email"
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone Number</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. +1234567890"
-                    type="tel"
-                    autoComplete="tel"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <>
+      <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
+        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
+          Create your Med Connecter Account
+        </h1>
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="your.email@example.com" 
+                      type="email" 
+                      autoComplete="email"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. +1234567890"
+                      type="tel"
+                      autoComplete="tel"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="First Name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Last Name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>First Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="First Name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Last Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Last Name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="dob"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Date of Birth</FormLabel>
-                <FormControl>
-                  <Input
-                    type="date"
-                    placeholder="Select date of birth"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="gender"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Gender</FormLabel>
-                <FormControl>
-                  <select {...field} className="w-full border rounded px-3 py-2">
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="dob"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date of Birth</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      placeholder="Select date of birth"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <FormControl>
+                    <select {...field} className="w-full border rounded px-3 py-2">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="address.street"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Street</FormLabel>
-                <FormControl>
-                  <Input placeholder="Street" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address.city"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>City</FormLabel>
-                <FormControl>
-                  <Input placeholder="City" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address.state"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>State</FormLabel>
-                <FormControl>
-                  <Input placeholder="State" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address.country"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Country</FormLabel>
-                <FormControl>
-                  <Input placeholder="Country" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address.postalCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Postal Code</FormLabel>
-                <FormControl>
-                  <Input placeholder="Postal Code" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="address.street"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Street</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Street" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address.city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input placeholder="City" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address.state"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>State</FormLabel>
+                  <FormControl>
+                    <Input placeholder="State" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address.country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Country" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address.postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Postal Code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Postal Code" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="languages"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Languages Spoken</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. English, Dutch, Hindi"
-                    value={field.value.join(', ')}
-                    onChange={e => field.onChange(e.target.value.split(',').map(lang => lang.trim()).filter(Boolean))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="languages"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Languages Spoken</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. English, Dutch, Hindi"
+                      value={field.value.join(', ')}
+                      onChange={e => field.onChange(e.target.value.split(',').map(lang => lang.trim()).filter(Boolean))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <FormItem className="space-y-3">
-                <FormLabel>Account Type</FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    className="flex flex-col space-y-1"
-                  >
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="patient" />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        I'm a Patient
-                      </FormLabel>
-                    </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="doctor" />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        I'm a Doctor
-                      </FormLabel>
-                    </FormItem>
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Account Type</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="patient" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          I'm a Patient
+                        </FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="doctor" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          I'm a Doctor
+                        </FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="agreeToTerms"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>
-                    I agree to the{' '}
-                    <Link to="/terms" className="text-healthcare-primary hover:underline">
-                      Terms of Service
-                    </Link>{' '}
-                    and{' '}
-                    <Link to="/privacy" className="text-healthcare-primary hover:underline">
-                      Privacy Policy
-                    </Link>
-                  </FormLabel>
-                  <FormDescription>
-                    We comply with GDPR regulations for healthcare data.
-                  </FormDescription>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="agreeToTerms"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      I agree to the{' '}
+                      <Link to="/terms" className="text-healthcare-primary hover:underline">
+                        Terms of Service
+                      </Link>{' '}
+                      and{' '}
+                      <Link to="/privacy" className="text-healthcare-primary hover:underline">
+                        Privacy Policy
+                      </Link>
+                    </FormLabel>
+                    <FormDescription>
+                      We comply with GDPR regulations for healthcare data.
+                    </FormDescription>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <Button 
-            type="submit" 
-            className="w-full bg-healthcare-primary hover:bg-healthcare-dark"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Creating Account...' : 'Create Account'}
-          </Button>
-        </form>
-      </Form>
+            <Button 
+              type="submit" 
+              className="w-full bg-healthcare-primary hover:bg-healthcare-dark"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating Account...' : 'Create Account'}
+            </Button>
+          </form>
+        </Form>
 
-      <div className="text-center mt-6">
-        <p className="text-gray-600">
-          Already have an account?{' '}
-          <Link to="/login" className="text-healthcare-primary hover:underline">
-            Log in
-          </Link>
-        </p>
+        <div className="text-center mt-6">
+          <p className="text-gray-600">
+            Already have an account?{' '}
+            <Link to="/login" className="text-healthcare-primary hover:underline">
+              Log in
+            </Link>
+          </p>
+        </div>
       </div>
-    </div>
+
+      {/* Error Modal */}
+      <Dialog open={errorModal.isOpen} onOpenChange={(open) => setErrorModal(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Registration Failed</DialogTitle>
+            <DialogDescription>
+              {errorModal.error}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {errorModal.details && Object.keys(errorModal.details).length > 0 && (
+            <div className="mt-4">
+              <h4 className="font-semibold text-sm text-gray-700 mb-2">Details:</h4>
+              <div className="space-y-1">
+                {Object.entries(errorModal.details).map(([field, message]) => (
+                  <div key={field} className="text-sm text-red-600">
+                    <span className="font-medium capitalize">{field}:</span> {message as string}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

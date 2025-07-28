@@ -69,11 +69,20 @@ export const useAuth = () => {
       },
       body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Registration failed');
+    
+    const responseData = await response.json();
+    
+    if (!response.ok || responseData.success === false) {
+      // Return the error object instead of throwing
+      return {
+        success: false,
+        error: responseData.error || 'Registration failed',
+        code: responseData.code || 'UNKNOWN_ERROR',
+        details: responseData.details || {}
+      };
     }
-    return response.json();
+    
+    return responseData;
   };
   
   return { ...context, register, setUser: context.setUser };

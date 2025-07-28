@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -35,6 +35,7 @@ const LoginForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
   const { setUser } = useAuth();
 
   const identifierForm = useForm<IdentifierFormValues>({
@@ -45,6 +46,19 @@ const LoginForm = () => {
     resolver: zodResolver(otpSchema),
     defaultValues: { otp: '' },
   });
+
+  // Timer effect for resend button
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   // Step 1: Initiate login
   const onIdentifierSubmit = async (data: IdentifierFormValues) => {
@@ -63,6 +77,7 @@ const LoginForm = () => {
         setType(data.identifier.includes('@') ? 'email' : 'phone');
         setStep('otp');
         setSuccess('OTP sent! Please check your ' + (data.identifier.includes('@') ? 'email' : 'phone'));
+        setResendTimer(120); // 2 minutes = 120 seconds
       } else {
         setError(res.message || 'Login initiation failed.');
       }
@@ -71,6 +86,40 @@ const LoginForm = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Resend OTP function
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    
+    setIsSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login/initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+      const res = await response.json();
+      if (response.ok) {
+        setSuccess('OTP resent! Please check your ' + (type === 'email' ? 'email' : 'phone'));
+        setResendTimer(120); // Reset timer to 2 minutes
+      } else {
+        setError(res.message || 'Failed to resend OTP.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Format timer display
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Step 2: Verify OTP
@@ -120,11 +169,17 @@ const LoginForm = () => {
                 if (statusRes.status === 'DETAILS_REQUIRED') {
                   navigate('/additional-details');
                 } else if (statusRes.status === 'DETAILS_UPDATED') {
-                  alert('Your verification is pending. Please wait for approval.');
-                } else if (statusRes.status === 'verified') {
+                  sessionStorage.setItem('doctor_verification_status', 'pending');
+                  sessionStorage.removeItem('doctor_verification_comments');
                   navigate('/dashboard');
-                } else if (statusRes.status === 'rejected') {
-                  alert('Your verification is rejected. Please contact support.');
+                } else if (statusRes.status === 'VERIFIED') {
+                  sessionStorage.removeItem('doctor_verification_status');
+                  sessionStorage.removeItem('doctor_verification_comments');
+                  navigate('/dashboard');
+                } else if (statusRes.status === 'REJECTED') {
+                  sessionStorage.setItem('doctor_verification_status', 'rejected');
+                  sessionStorage.setItem('doctor_verification_comments', statusRes.adminComments || '');
+                  navigate('/dashboard');
                 }
               })
               .catch(err => {
@@ -225,6 +280,27 @@ const LoginForm = () => {
             />
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}
             {success && <div className="text-green-600 text-sm text-center font-semibold">{success}</div>}
+            
+            {/* Resend OTP section */}
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-600">Didn't receive the OTP?</p>
+              {resendTimer > 0 ? (
+                <p className="text-sm text-gray-500">
+                  Resend available in <span className="font-mono font-semibold">{formatTimer(resendTimer)}</span>
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResendOtp}
+                  disabled={isSubmitting}
+                  className="text-healthcare-primary hover:text-healthcare-dark"
+                >
+                  {isSubmitting ? 'Sending...' : 'Resend OTP'}
+                </Button>
+              )}
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-healthcare-primary hover:bg-healthcare-dark"
@@ -240,6 +316,7 @@ const LoginForm = () => {
                 setStep('identifier');
                 setError('');
                 setSuccess('');
+                setResendTimer(0);
                 otpForm.reset();
               }}
               disabled={isSubmitting}
