@@ -98,11 +98,11 @@ const DoctorDashboard = () => {
   const [weeklySchedule, setWeeklySchedule] = useState([
     { day: 'Monday', available: false, slots: [] },
     { day: 'Tuesday', available: false, slots: [] },
-    { day: 'Wednesday', available: true, slots: [{ startTime: '22:00', endTime: '23:30' }] },
+    { day: 'Wednesday', available: false, slots: [] },
     { day: 'Thursday', available: false, slots: [] },
     { day: 'Friday', available: false, slots: [] },
-    { day: 'Saturday', available: true, slots: [{ startTime: '10:00', endTime: '12:00' }] },
-    { day: 'Sunday', available: true, slots: [{ startTime: '10:00', endTime: '12:00' }] }
+    { day: 'Saturday', available: false, slots: [] },
+    { day: 'Sunday', available: false, slots: [] }
   ]);
   const [blockDates, setBlockDates] = useState<string[]>([]);
   const [scheduleSaving, setScheduleSaving] = useState(false);
@@ -124,6 +124,17 @@ const DoctorDashboard = () => {
         });
         const data = await res.json();
         setDoctorProfile(data);
+        
+        // Store doctor profile data in localStorage for Header access
+        if (data.success && data.doctor) {
+          localStorage.setItem('medconnecter_doctor_profile', JSON.stringify({
+            id: data.doctor._id || data.doctor.id,
+            name: `${data.doctor.userId?.firstName || ''} ${data.doctor.userId?.lastName || ''}`.trim(),
+            email: data.doctor.userId?.email || user.email,
+            role: 'doctor'
+          }));
+        }
+        
         setEditProfile({
           ...data.doctor,
           education: data.doctor.education || [],
@@ -136,11 +147,20 @@ const DoctorDashboard = () => {
       } catch (err) {
         setDoctorProfile(null);
         setEditProfile(null);
+        // Clear stored profile on error
+        localStorage.removeItem('medconnecter_doctor_profile');
       } finally {
         setLoading(false);
       }
     };
     fetchProfile();
+
+    // Cleanup function to clear stored profile when component unmounts or user changes
+    return () => {
+      if (!user || user.role !== 'doctor') {
+        localStorage.removeItem('medconnecter_doctor_profile');
+      }
+    };
   }, [user]);
 
   // Check for verification status messages
@@ -193,7 +213,7 @@ const DoctorDashboard = () => {
 
   // Schedule management functions
   const toggleDayAvailability = (dayIndex: number) => {
-    setWeeklySchedule(prev => prev.map((day, index) => 
+    setWeeklySchedule(prev => prev.map((day: any, index: number) => 
       index === dayIndex 
         ? { ...day, available: !day.available, slots: !day.available ? [{ startTime: '09:00', endTime: '17:00' }] : [] }
         : day
@@ -201,11 +221,11 @@ const DoctorDashboard = () => {
   };
 
   const updateTimeSlot = (dayIndex: number, slotIndex: number, field: 'startTime' | 'endTime', value: string) => {
-    setWeeklySchedule(prev => prev.map((day, index) => 
+    setWeeklySchedule(prev => prev.map((day: any, index: number) => 
       index === dayIndex 
         ? {
             ...day,
-            slots: day.slots.map((slot, slotIdx) => 
+            slots: day.slots.map((slot: any, slotIdx: number) => 
               slotIdx === slotIndex 
                 ? { ...slot, [field]: value }
                 : slot
@@ -216,7 +236,7 @@ const DoctorDashboard = () => {
   };
 
   const addTimeSlot = (dayIndex: number) => {
-    setWeeklySchedule(prev => prev.map((day, index) => 
+    setWeeklySchedule(prev => prev.map((day: any, index: number) => 
       index === dayIndex 
         ? {
             ...day,
@@ -227,7 +247,7 @@ const DoctorDashboard = () => {
   };
 
   const removeTimeSlot = (dayIndex: number, slotIndex: number) => {
-    setWeeklySchedule(prev => prev.map((day, index) => 
+    setWeeklySchedule(prev => prev.map((day: any, index: number) => 
       index === dayIndex 
         ? {
             ...day,
@@ -709,20 +729,17 @@ const DoctorDashboard = () => {
               {/* Schedule Header */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Calendar</CardTitle>
+                  <CardTitle>Schedule</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex space-x-4 border-b">
-                    <button className="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700">
-                      Settings
-                    </button>
+                  {/* <div className="flex space-x-4 border-b">
                     <button className="px-4 py-2 text-sm font-medium text-gray-900 border-b-2 border-black">
                       Schedule
                     </button>
-                  </div>
+                  </div> */}
                   
                   <div className="mt-6">
-                    <div className="flex space-x-4 mb-6">
+                    {/* <div className="flex space-x-4 mb-6">
                       <button className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-900 rounded">
                         Default
                       </button>
@@ -732,7 +749,7 @@ const DoctorDashboard = () => {
                       <button className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
                         + New Schedule
                       </button>
-                    </div>
+                    </div> */}
                     
                     <div className="flex gap-6">
                       {/* Main Schedule Content */}
@@ -761,7 +778,7 @@ const DoctorDashboard = () => {
                               
                               {daySchedule.available ? (
                                 <div className="flex-1 space-y-2">
-                                  {daySchedule.slots.map((slot, slotIndex) => (
+                                  {daySchedule.slots.map((slot: any, slotIndex: number) => (
                                     <div key={slotIndex} className="flex items-center space-x-2">
                                       <select 
                                         value={slot.startTime}

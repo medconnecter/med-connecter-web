@@ -105,6 +105,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Clear user from state and storage
       setUser(null);
       localStorage.removeItem('healthconnect_user');
+      // Clear stored doctor profile
+      localStorage.removeItem('medconnecter_doctor_profile');
       toast.success('Successfully logged out');
     } catch (error) {
       toast.error('Failed to logout');

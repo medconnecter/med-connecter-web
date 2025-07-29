@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +19,33 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { t } = useLanguage();
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
+
+  // Get doctor profile from localStorage
+  useEffect(() => {
+    if (user?.role === 'doctor') {
+      const storedProfile = localStorage.getItem('medconnecter_doctor_profile');
+      if (storedProfile) {
+        try {
+          const parsedProfile = JSON.parse(storedProfile);
+          // Validate that the profile has the required fields
+          if (parsedProfile && parsedProfile.id) {
+            setDoctorProfile(parsedProfile);
+          } else {
+            console.warn('Invalid doctor profile data stored');
+            setDoctorProfile(null);
+          }
+        } catch (error) {
+          console.error('Error parsing stored doctor profile:', error);
+          setDoctorProfile(null);
+        }
+      } else {
+        setDoctorProfile(null);
+      }
+    } else {
+      setDoctorProfile(null);
+    }
+  }, [user]);
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -75,7 +102,16 @@ const Header = () => {
                   <Link to="/dashboard" className="w-full cursor-pointer">{t('dashboard')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="w-full cursor-pointer">{t('profile')}</Link>
+                  <Link 
+                    to={user.role === 'doctor' && doctorProfile ? `/doctor/${doctorProfile.id}` : '/dashboard'} 
+                    className="w-full cursor-pointer"
+                    title={user.role === 'doctor' && !doctorProfile ? 'Loading profile...' : ''}
+                  >
+                    {t('profile')}
+                    {user.role === 'doctor' && !doctorProfile && (
+                      <span className="ml-2 text-xs text-gray-400">(Loading...)</span>
+                    )}
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/appointments" className="w-full cursor-pointer">{t('myAppointments')}</Link>
@@ -187,11 +223,15 @@ const Header = () => {
                       {t('dashboard')}
                     </Link>
                     <Link 
-                      to="/profile" 
+                      to={user.role === 'doctor' && doctorProfile ? `/doctor/${doctorProfile.id}` : '/dashboard'} 
                       className="block py-2 text-gray-600 hover:text-healthcare-primary"
                       onClick={() => setIsMobileMenuOpen(false)}
+                      title={user.role === 'doctor' && !doctorProfile ? 'Loading profile...' : ''}
                     >
                       {t('profile')}
+                      {user.role === 'doctor' && !doctorProfile && (
+                        <span className="ml-2 text-xs text-gray-400">(Loading...)</span>
+                      )}
                     </Link>
                     <Link 
                       to="/appointments" 
