@@ -1,11 +1,48 @@
 
-import { useState } from 'react';
+import { useState, useEffect} from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from '@/components/layout/Layout';
+import { API_BASE_URL } from '@/lib/utils';
+
+
+const mapBackendDoctorToProfile = (doc: any) => {
+  return {
+    id: doc._id || doc.id,
+    name: `${doc.userId?.firstName || doc.firstName} ${doc.userId?.lastName || doc.lastName}`,
+    specialty: doc.specializations?.join(', ') || "General Specialist",
+    hospital: doc.clinicLocation?.address || "Private Clinic",
+    education: doc.education || [],
+    experience: doc.experience || 0,
+    bio: doc.about || 'No bio available',
+    rating: doc.rating || 0,
+    reviewCount: doc.totalReviews || 0,
+    languages: doc.languages?.length ? doc.languages : ["Dutch"],
+    availableToday: true, // This would need to be calculated based on current day
+    consultationFee: doc.consultationFee || 0,
+    photoUrl: doc.profilePhoto || "https://randomuser.me/api/portraits/lego/1.jpg",
+    verified: doc.status === "VERIFIED",
+    gender: doc.userId?.gender || doc.gender || null,
+    location: doc.clinicLocation || {
+      address: 'Address not available',
+      city: 'City not available',
+      postcode: 'Postcode not available'
+    },
+    specializations: doc.specializations || [],
+    services: doc.services || [],
+    awards: doc.awards || [],
+    publications: doc.publications || [],
+    availableDays: doc.availability?.map((a: any) => a.day) || [],
+    timeSlots: doc.availability?.reduce((acc: any, a: any) => {
+      acc[a.day] = a.slots?.map((slot: any) => slot.startTime) || [];
+      return acc;
+    }, {}) || {},
+    reviews: [], // Reviews would need to be fetched separately
+  };
+};
 
 // Mock doctor data
 const mockDoctors = [
@@ -78,9 +115,105 @@ const DoctorProfilePage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   
   // Find the doctor based on the URL param
-  const doctor = mockDoctors.find((doc) => doc.id === id);
+  // const doctor = mockDoctors.find((doc) => doc.id === id);
   
   // If doctor not found
+  const [doctor, setDoctor] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch doctor data from localStorage or API
+  useEffect(() => {
+    const fetchDoctorData = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // First try to get from localStorage (from FindDoctorsPage)
+        const storedDoctors = localStorage.getItem('medconnecter_doctors');
+        
+        if (storedDoctors) {
+          const doctors = JSON.parse(storedDoctors);
+          const foundDoctor = doctors.find((doc: any) => doc.id === id);
+          
+          if (foundDoctor && foundDoctor.backendData) {
+            // Use the stored backend data to create profile
+            const doctorData = mapBackendDoctorToProfile(foundDoctor.backendData);
+            setDoctor(doctorData);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If not found in localStorage, try to fetch from API
+        const response = await fetch(`${API_BASE_URL}/api/v1/doctors/getById?id=${id}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.success) {
+            const doctorData = mapBackendDoctorToProfile(data.doctor);
+            setDoctor(doctorData);
+          } else {
+            throw new Error(data.message || 'Failed to fetch doctor data');
+          }
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch doctor data:", error);
+        setError('Failed to load doctor profile. Please try again later.');
+        
+        // Fallback to mock data if server fails
+        const mockDoctor = mockDoctors.find(doc => doc.id === id);
+        if (mockDoctor) {
+          setDoctor(mockDoctor);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctorData();
+  }, [id]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center">
+          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+          <p>Loading doctor profile...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error && !doctor) {
+    return (
+      <Layout>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mb-4">Error Loading Profile</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link to="/find-doctors">
+            <Button className="bg-healthcare-primary hover:bg-healthcare-dark">
+              Return to Doctor Search
+            </Button>
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Doctor not found
   if (!doctor) {
     return (
       <Layout>
@@ -178,7 +311,7 @@ const DoctorProfilePage = () => {
               <div className="mb-4">
                 <p className="font-medium mb-2">Languages:</p>
                 <div className="flex flex-wrap gap-2">
-                  {doctor.languages.map((language) => (
+                  {doctor.languages.map((language: string) => (
                     <Badge key={language} variant="outline" className="bg-gray-100">
                       {language}
                     </Badge>
@@ -264,7 +397,7 @@ const DoctorProfilePage = () => {
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h2 className="text-xl font-semibold mb-4">Education & Training</h2>
                 <div className="space-y-4">
-                  {doctor.education.map((edu, index) => (
+                  {doctor.education.map((edu: any, index: number) => (
                     <div key={index} className="flex">
                       <div className="mr-4 flex-shrink-0">
                         <div className="h-10 w-10 rounded-full bg-healthcare-light flex items-center justify-center">
@@ -288,7 +421,7 @@ const DoctorProfilePage = () => {
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h2 className="text-xl font-semibold mb-4">Awards & Recognition</h2>
                   <div className="space-y-4">
-                    {doctor.awards.map((award, index) => (
+                    {doctor.awards.map((award: any, index: number) => (
                       <div key={index} className="flex">
                         <div className="mr-4 flex-shrink-0">
                           <div className="h-10 w-10 rounded-full bg-yellow-50 flex items-center justify-center">
@@ -313,7 +446,7 @@ const DoctorProfilePage = () => {
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                   <h2 className="text-xl font-semibold mb-4">Publications</h2>
                   <div className="space-y-4">
-                    {doctor.publications.map((pub, index) => (
+                    {doctor.publications.map((pub: any, index: number) => (
                       <div key={index} className="flex">
                         <div className="mr-4 flex-shrink-0">
                           <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
@@ -337,7 +470,7 @@ const DoctorProfilePage = () => {
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h2 className="text-xl font-semibold mb-4">Specializations</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {doctor.specializations?.map((item, index) => (
+                  {doctor.specializations?.map((item: any, index: number) => (
                     <div key={index} className="flex items-center">
                       <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
@@ -351,7 +484,7 @@ const DoctorProfilePage = () => {
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h2 className="text-xl font-semibold mb-4">Services Offered</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {doctor.services?.map((item, index) => (
+                  {doctor.services?.map((item: any, index: number) => (
                     <div key={index} className="flex items-center">
                       <svg className="w-5 h-5 text-healthcare-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -389,7 +522,7 @@ const DoctorProfilePage = () => {
                 </div>
                 
                 <div className="space-y-6">
-                  {doctor.reviews?.map((review) => (
+                  {doctor.reviews?.map((review: any) => (
                     <div key={review.id} className="border-b pb-6 last:border-b-0 last:pb-0">
                       <div className="flex justify-between items-start mb-2">
                         <p className="font-semibold">{review.patientName}</p>
@@ -451,9 +584,9 @@ const DoctorProfilePage = () => {
                   <div className="mb-8">
                     <h3 className="font-medium mb-4">Select Time Slot</h3>
                     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {doctor.availableDays.map((day) => {
+                      {doctor.availableDays.map((day: any) => {
                         const dayName = day;
-                        return doctor.timeSlots[dayName]?.map((time, index) => (
+                        return doctor.timeSlots[dayName]?.map((time: any, index: number) => (
                           <Button
                             key={index}
                             variant={selectedTimeSlot === time ? "default" : "outline"}
@@ -498,7 +631,7 @@ const DoctorProfilePage = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="location" className="space-y-8">
+            {/* <TabsContent value="location" className="space-y-8">
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <h2 className="text-xl font-semibold mb-4">Practice Location</h2>
                 
@@ -541,7 +674,7 @@ const DoctorProfilePage = () => {
                   </a>
                 </div>
               </div>
-            </TabsContent>
+            </TabsContent> */}
           </Tabs>
         </div>
       </section>
