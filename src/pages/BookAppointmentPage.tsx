@@ -104,7 +104,7 @@ const BookAppointmentPage = () => {
     const dayName = format(date, 'EEEE');
     if (!doctor.availableDays.includes(dayName)) return [];
     
-    return doctor.timeSlots[dayName] || [];
+    return (doctor.timeSlots as any)[dayName] || [];
   };
   
   // Get available time slots for the selected date
@@ -198,7 +198,7 @@ const BookAppointmentPage = () => {
                   {date ? (
                     availableTimeSlots.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {availableTimeSlots.map((time) => (
+                        {availableTimeSlots.map((time: string) => (
                           <Button
                             key={time}
                             variant={timeSlot === time ? "default" : "outline"}

@@ -169,7 +169,7 @@ const AdditionalDetailsPage = () => {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      // const data = await response.json();
       setSubmitting(false);
       navigate('/dashboard');
     } catch (err) {

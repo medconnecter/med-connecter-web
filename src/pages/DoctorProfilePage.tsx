@@ -453,7 +453,7 @@ const DoctorProfilePage = () => {
                     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                       {doctor.availableDays.map((day) => {
                         const dayName = day;
-                        return doctor.timeSlots[dayName]?.map((time, index) => (
+                        return (doctor.timeSlots as any)[dayName]?.map((time: string, index: number) => (
                           <Button
                             key={index}
                             variant={selectedTimeSlot === time ? "default" : "outline"}
