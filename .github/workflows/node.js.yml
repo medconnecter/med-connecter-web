@@ -41,7 +41,7 @@ jobs:
         NODE_ENV: test
     
     - name: Upload test coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       if: matrix.node-version == '23.x'
       with:
         file: ./coverage/lcov.info
@@ -97,7 +97,7 @@ jobs:
         tar -czf med-connecter-web.tar.gz -C dist-package .
     
     - name: Upload deployment package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: med-connecter-web-deployment
         path: med-connecter-web.tar.gz
