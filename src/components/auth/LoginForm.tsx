@@ -167,7 +167,12 @@ const LoginForm = () => {
               .then(resp => resp.json())
               .then(statusRes => {
                 if (statusRes.status === 'DETAILS_REQUIRED') {
-                  navigate('/additional-details');
+                  // Navigate to message page with user data from verify response
+                  navigate('/additional-details-message', { 
+                    state: { 
+                      userData: res.user 
+                    } 
+                  });
                 } else if (statusRes.status === 'DETAILS_UPDATED') {
                   sessionStorage.setItem('doctor_verification_status', 'pending');
                   sessionStorage.removeItem('doctor_verification_comments');
@@ -184,7 +189,7 @@ const LoginForm = () => {
               })
               .catch(err => {
                 console.error('Status fetch error:', err);
-                navigate('/dashboard');
+                // navigate('/dashboard');
               });
           } else {
             // Patient: fetch profile and go to dashboard

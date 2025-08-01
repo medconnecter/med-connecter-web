@@ -260,10 +260,44 @@ const DoctorDashboard = () => {
   const saveSchedule = async () => {
     setScheduleSaving(true);
     try {
-      // TODO: Implement API call to save schedule
-      console.log('Saving schedule:', weeklySchedule);
-      toast.success('Schedule saved successfully!');
+      const token = localStorage.getItem('access_token');
+      
+      // Transform weekly schedule to API format
+      const availability = weeklySchedule
+        .filter(day => day.available && day.slots.length > 0)
+        .map(day => ({
+          day: day.day.toLowerCase(),
+          slots: day.slots.map((slot: any) => ({
+            startTime: slot.startTime,
+            endTime: slot.endTime
+          }))
+        }));
+
+      const payload = {
+        availability: availability
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/doctors/availability`, {
+        method: 'PUT',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Schedule saved successfully:', data);
+        toast.success('Schedule saved successfully!');
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to save schedule:', errorData);
+        toast.error('Failed to save schedule. Please try again.');
+      }
     } catch (error) {
+      console.error('Error saving schedule:', error);
       toast.error('Failed to save schedule');
     } finally {
       setScheduleSaving(false);
