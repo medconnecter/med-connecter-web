@@ -7,15 +7,20 @@ WORKDIR /app
 COPY package*.json ./
 COPY bun.lockb ./
 
-# Install ALL dependencies (including dev dependencies needed for build)
-# Remove --only=production flag to include dev dependencies like Vite
-RUN npm ci --include=dev
+# Install dependencies including dev dependencies
+RUN npm ci
+
+# Verify Vite is installed
+RUN npx vite --version
 
 # Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build:prod
+
+# Verify build output exists
+RUN ls -la dist/
 
 # Production stage
 FROM nginx:alpine AS production
@@ -30,4 +35,4 @@ COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
 
 # Start nginx
-CMD ["nginx", "-g", "daemon off;"] 
+CMD ["nginx", "-g", "daemon off;"]
