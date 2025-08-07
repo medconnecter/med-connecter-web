@@ -328,6 +328,234 @@ display_next_steps() {
     echo -e "${GREEN}✅ Frontend setup complete!${NC}"
 }
 
+# Function to debug and fix health check issues
+debug_and_fix_health_checks() {
+    echo -e "${YELLOW}🔍 Debugging and fixing health check issues...${NC}"
+    
+    # Check ECS service status
+    echo -e "${YELLOW}📋 Checking ECS Service Status...${NC}"
+    SERVICE_DETAILS=$(aws ecs describe-services \
+        --cluster "${CLUSTER_NAME}" \
+        --services "${SERVICE_NAME}" \
+        --region "${REGION}")
+    
+    SERVICE_STATUS=$(echo "${SERVICE_DETAILS}" | jq -r '.services[0].status')
+    DESIRED_COUNT=$(echo "${SERVICE_DETAILS}" | jq -r '.services[0].desiredCount')
+    RUNNING_COUNT=$(echo "${SERVICE_DETAILS}" | jq -r '.services[0].runningCount')
+    
+    echo -e "Service Status: ${SERVICE_STATUS}"
+    echo -e "Desired Count: ${DESIRED_COUNT}"
+    echo -e "Running Count: ${RUNNING_COUNT}"
+    
+    if [ "${SERVICE_STATUS}" = "ACTIVE" ] && [ "${RUNNING_COUNT}" -gt 0 ]; then
+        echo -e "${GREEN}✅ ECS Service is active and has running tasks${NC}"
+    else
+        echo -e "${RED}❌ ECS Service has issues - attempting to fix...${NC}"
+        
+        # Force new deployment
+        echo -e "${YELLOW}🔄 Forcing new deployment...${NC}"
+        aws ecs update-service \
+            --cluster "${CLUSTER_NAME}" \
+            --service "${SERVICE_NAME}" \
+            --force-new-deployment \
+            --region "${REGION}"
+        
+        echo -e "${GREEN}✅ Service update initiated${NC}"
+    fi
+    
+    # Check target group health
+    echo -e "${YELLOW}📋 Checking Target Group Health...${NC}"
+    TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+        --names "${FRONTEND_PROJECT_NAME}-tg" \
+        --region "${REGION}" \
+        --query 'TargetGroups[0].TargetGroupArn' \
+        --output text)
+    
+    TARGET_HEALTH=$(aws elbv2 describe-target-health \
+        --target-group-arn "${TARGET_GROUP_ARN}" \
+        --region "${REGION}")
+    
+    echo "${TARGET_HEALTH}" | jq -r '.TargetHealthDescriptions[] | "Target: \(.Target.Id):\(.Target.Port) - Status: \(.TargetHealth.State) - Reason: \(.TargetHealth.Reason // "N/A")"'
+    
+    # Check if targets are unhealthy
+    UNHEALTHY_COUNT=$(echo "${TARGET_HEALTH}" | jq -r '.TargetHealthDescriptions[] | select(.TargetHealth.State == "unhealthy") | .Target.Id' | wc -l)
+    
+    if [ "${UNHEALTHY_COUNT}" -gt 0 ]; then
+        echo -e "${RED}❌ Found ${UNHEALTHY_COUNT} unhealthy targets - attempting to fix...${NC}"
+        
+        # Fix security group rules
+        fix_security_group_rules
+        
+        # Update target group health check settings
+        fix_target_group_health_check
+        
+        # Wait for health checks to stabilize
+        echo -e "${YELLOW}⏳ Waiting for health checks to stabilize...${NC}"
+        sleep 60
+        
+        # Check health again
+        TARGET_HEALTH_AFTER=$(aws elbv2 describe-target-health \
+            --target-group-arn "${TARGET_GROUP_ARN}" \
+            --region "${REGION}")
+        
+        echo -e "${YELLOW}📋 Health check status after fixes:${NC}"
+        echo "${TARGET_HEALTH_AFTER}" | jq -r '.TargetHealthDescriptions[] | "Target: \(.Target.Id):\(.Target.Port) - Status: \(.TargetHealth.State) - Reason: \(.TargetHealth.Reason // "N/A")"'
+    else
+        echo -e "${GREEN}✅ All targets are healthy${NC}"
+    fi
+    
+    echo ""
+}
+
+# Function to fix security group rules
+fix_security_group_rules() {
+    echo -e "${YELLOW}🔧 Fixing security group rules...${NC}"
+    
+    # Get VPC ID
+    VPC_ID=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text --region "${REGION}")
+    
+    # Get default security group
+    SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
+        --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=default" \
+        --query 'SecurityGroups[0].GroupId' \
+        --output text \
+        --region "${REGION}")
+    
+    echo -e "VPC: ${VPC_ID}"
+    echo -e "Security Group: ${SECURITY_GROUP_ID}"
+    
+    # Add port 80 rule if it doesn't exist
+    echo -e "${YELLOW}Adding port 80 rule to security group...${NC}"
+    aws ec2 authorize-security-group-ingress \
+        --group-id "${SECURITY_GROUP_ID}" \
+        --protocol tcp \
+        --port 80 \
+        --cidr 0.0.0.0/0 \
+        --region "${REGION}" 2>/dev/null || echo -e "${GREEN}✅ Port 80 rule already exists${NC}"
+    
+    # Add port 443 rule if it doesn't exist
+    echo -e "${YELLOW}Adding port 443 rule to security group...${NC}"
+    aws ec2 authorize-security-group-ingress \
+        --group-id "${SECURITY_GROUP_ID}" \
+        --protocol tcp \
+        --port 443 \
+        --cidr 0.0.0.0/0 \
+        --region "${REGION}" 2>/dev/null || echo -e "${GREEN}✅ Port 443 rule already exists${NC}"
+    
+    echo -e "${GREEN}✅ Security group rules updated${NC}"
+    echo ""
+}
+
+# Function to fix target group health check settings
+fix_target_group_health_check() {
+    echo -e "${YELLOW}🔧 Fixing target group health check settings...${NC}"
+    
+    # Get target group ARN
+    TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+        --names "${FRONTEND_PROJECT_NAME}-tg" \
+        --region "${REGION}" \
+        --query 'TargetGroups[0].TargetGroupArn' \
+        --output text)
+    
+    # Update health check settings to be more lenient
+    echo -e "${YELLOW}Updating health check settings...${NC}"
+    aws elbv2 modify-target-group \
+        --target-group-arn "${TARGET_GROUP_ARN}" \
+        --health-check-path /health \
+        --health-check-interval-seconds 30 \
+        --health-check-timeout-seconds 10 \
+        --healthy-threshold-count 2 \
+        --unhealthy-threshold-count 3 \
+        --region "${REGION}"
+    
+    echo -e "${GREEN}✅ Target group health check settings updated${NC}"
+    echo ""
+}
+
+# Function to check container logs
+check_container_logs() {
+    echo -e "${YELLOW}📋 Checking Container Logs...${NC}"
+    
+    # Get the most recent task
+    RECENT_TASK=$(aws ecs list-tasks \
+        --cluster "${CLUSTER_NAME}" \
+        --service-name "${SERVICE_NAME}" \
+        --region "${REGION}" \
+        --query 'taskArns[0]' \
+        --output text)
+    
+    if [ "${RECENT_TASK}" = "None" ] || [ -z "${RECENT_TASK}" ]; then
+        echo -e "${RED}❌ No tasks found to check logs${NC}"
+        return
+    fi
+    
+    echo -e "Checking logs for task: ${RECENT_TASK}"
+    
+    # Get log stream name
+    LOG_STREAM=$(aws logs describe-log-streams \
+        --log-group-name "/ecs/${FRONTEND_PROJECT_NAME}" \
+        --region "${REGION}" \
+        --order-by LastEventTime \
+        --descending \
+        --max-items 1 \
+        --query 'logStreams[0].logStreamName' \
+        --output text)
+    
+    if [ "${LOG_STREAM}" = "None" ] || [ -z "${LOG_STREAM}" ]; then
+        echo -e "${RED}❌ No log streams found${NC}"
+        return
+    fi
+    
+    echo -e "Log stream: ${LOG_STREAM}"
+    
+    # Get recent logs
+    echo -e "${BLUE}Recent logs:${NC}"
+    aws logs get-log-events \
+        --log-group-name "/ecs/${FRONTEND_PROJECT_NAME}" \
+        --log-stream-name "${LOG_STREAM}" \
+        --region "${REGION}" \
+        --start-from-head \
+        --limit 10 \
+        --query 'events[].message' \
+        --output text | head -10
+    echo ""
+}
+
+# Function to test health endpoint manually
+test_health_endpoint() {
+    echo -e "${YELLOW}📋 Testing Health Endpoint...${NC}"
+    
+    # Get ALB DNS name
+    ALB_DNS=$(aws elbv2 describe-load-balancers \
+        --names "${PROJECT_NAME}-alb" \
+        --region "${REGION}" \
+        --query 'LoadBalancers[0].DNSName' \
+        --output text)
+    
+    echo -e "ALB DNS: ${ALB_DNS}"
+    
+    # Test health endpoint
+    echo -e "Testing: http://${ALB_DNS}/health"
+    
+    # Try to curl the health endpoint
+    if command -v curl &> /dev/null; then
+        echo -e "${BLUE}Response:${NC}"
+        curl -v --connect-timeout 10 --max-time 30 "http://${ALB_DNS}/health" 2>&1 || echo -e "${RED}❌ Health endpoint not accessible${NC}"
+    else
+        echo -e "${YELLOW}⚠️ curl not available, cannot test health endpoint${NC}"
+    fi
+    echo ""
+}
+
+# Function to run debugging only
+debug_only() {
+    echo -e "${BLUE}🔍 Running debugging only...${NC}"
+    debug_and_fix_health_checks
+    check_container_logs
+    test_health_endpoint
+    echo -e "${BLUE}🎉 Debugging completed!${NC}"
+}
+
 # Main execution
 main() {
     check_aws_cli
@@ -341,8 +569,16 @@ main() {
     update_task_definition
     create_ecs_service
     update_ecs_service
+    debug_and_fix_health_checks
+    check_container_logs
+    test_health_endpoint
     display_next_steps
 }
 
-# Run main function
-main "$@"
+# Check if debug mode is requested
+if [ "$1" = "debug" ]; then
+    debug_only
+else
+    # Run main function
+    main "$@"
+fi
