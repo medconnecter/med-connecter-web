@@ -566,13 +566,13 @@ main() {
     check_shared_load_balancer
     create_target_group
     configure_path_routing
-    update_task_definition
-    create_ecs_service
-    update_ecs_service
-    debug_and_fix_health_checks
-    check_container_logs
-    test_health_endpoint
-    display_next_steps
+    # update_task_definition
+    # create_ecs_service
+    # update_ecs_service
+    # debug_and_fix_health_checks
+    # check_container_logs
+    # test_health_endpoint
+    # display_next_steps
 }
 
 # Check if debug mode is requested

@@ -92,8 +92,8 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # Also tag as latest for compatibility
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:IMAGE_TAG
         
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
@@ -177,9 +177,29 @@ jobs:
         echo "Service status: $SERVICE_STATUS"
         
         if [ "$SERVICE_STATUS" = "NONEXISTENT" ]; then
-          echo "❌ Service does not exist. Please run the setup script first."
-          echo "Run: ./scripts/setup-aws-resources-frontend.sh"
-          exit 1
+          echo "❌ Service does not exist. Creating it now..."
+          # Get subnet IDs
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text --region ${{ secrets.AWS_REGION }})
+          SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[*].SubnetId' --output text --region ${{ secrets.AWS_REGION }} | tr '\t' ',' | sed 's/,$//')
+          SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=default" --query 'SecurityGroups[0].GroupId' --output text --region ${{ secrets.AWS_REGION }})
+          
+          TASK_DEF=$(aws ecs register-task-definition \
+              --cli-input-json file://${{ steps.task-def.outputs.task-definition }} \
+              --region ${{ secrets.AWS_REGION }} \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+          
+          # Create service
+          aws ecs create-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name ${{ env.ECS_SERVICE }} \
+            --task-definition $TASK_DEF\
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_IDS}],securityGroups=[${SECURITY_GROUP_ID}],assignPublicIp=ENABLED}" \
+            --region ${{ secrets.AWS_REGION }}
+          
+          echo "✅ Service created successfully"
         elif [ "$SERVICE_STATUS" = "ACTIVE" ]; then
           echo "✅ Service exists and is active"
         else
