@@ -239,11 +239,11 @@ create_ecs_service() {
         echo -e "${YELLOW}Using security group: ${SECURITY_GROUP_ID}${NC}"
         echo -e "${YELLOW}Using target group: ${TARGET_GROUP_ARN}${NC}"
         
-        # Register task definition first
+        # Register task definition first (this is crucial for proper image handling)
         echo -e "${YELLOW}Registering task definition...${NC}"
         aws ecs register-task-definition --cli-input-json file://.aws/task-definition.json --region "${REGION}"
         
-        # Create service with load balancer
+        # Create service with load balancer using the correct task definition family and revision
         echo -e "${YELLOW}Creating ECS service with load balancer...${NC}"
         aws ecs create-service \
             --cluster "${CLUSTER_NAME}" \
@@ -261,6 +261,45 @@ create_ecs_service() {
             echo -e "${RED}❌ Failed to create ECS service${NC}"
             exit 1
         fi
+    fi
+    echo ""
+}
+
+# Function to update existing ECS service (if needed)
+update_ecs_service() {
+    echo -e "${YELLOW}🔍 Checking if ECS service needs update...${NC}"
+    
+    # Check if service exists
+    SERVICE_STATUS=$(aws ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --region "${REGION}" --query 'services[0].status' --output text 2>/dev/null || echo "NONEXISTENT")
+    
+    if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+        echo -e "${YELLOW}Service exists, checking if it needs update...${NC}"
+        
+        # Get current task definition
+        CURRENT_TASK_DEF=$(aws ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --region "${REGION}" --query 'services[0].taskDefinition' --output text)
+        
+        # Register new task definition
+        echo -e "${YELLOW}Registering updated task definition...${NC}"
+        aws ecs register-task-definition --cli-input-json file://.aws/task-definition.json --region "${REGION}"
+        
+        # Get new task definition ARN
+        NEW_TASK_DEF_ARN=$(aws ecs describe-task-definition --task-definition "${FRONTEND_PROJECT_NAME}" --region "${REGION}" --query 'taskDefinition.taskDefinitionArn' --output text)
+        
+        # Update service if task definition changed
+        if [ "$CURRENT_TASK_DEF" != "$NEW_TASK_DEF_ARN" ]; then
+            echo -e "${YELLOW}Updating service with new task definition...${NC}"
+            aws ecs update-service \
+                --cluster "${CLUSTER_NAME}" \
+                --service "${SERVICE_NAME}" \
+                --task-definition "${NEW_TASK_DEF_ARN}" \
+                --region "${REGION}"
+            
+            echo -e "${GREEN}✅ Service updated successfully${NC}"
+        else
+            echo -e "${GREEN}✅ Service is already up to date${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Service does not exist, will be created by create_ecs_service function${NC}"
     fi
     echo ""
 }
@@ -301,6 +340,7 @@ main() {
     configure_path_routing
     update_task_definition
     create_ecs_service
+    update_ecs_service
     display_next_steps
 }
 
