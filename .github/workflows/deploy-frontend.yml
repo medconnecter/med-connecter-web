@@ -1,0 +1,219 @@
+name: Deploy Med Connecter Frontend to Amazon ECS
+
+on:
+  workflow_run:
+    workflows: ["Node.js CI/CD"]
+    types:
+      - completed
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# Prevent concurrent deployments
+concurrency:
+  group: production-frontend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}    # set this to your preferred AWS region, e.g. us-west-1
+  ECR_REPOSITORY: med-connecter-web        # set this to your Amazon ECR repository name
+  ECS_SERVICE: med-connecter-web-service   # set this to your Amazon ECS service name
+  ECS_CLUSTER: med-connecter-cluster       # set this to your Amazon ECS cluster name (shared with backend)
+  ECS_TASK_DEFINITION: .aws/task-definition.json # set this to the path to your Amazon ECS task definition
+                                               # file, e.g. .aws/task-definition.json
+  CONTAINER_NAME: med-connecter-web        # set this to the name of the container in the
+                                               # containerDefinitions section of the task definition
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Setup AWS Resources
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        echo "🔧 Setting up AWS resources for frontend..."
+        chmod +x scripts/setup-aws-resources-frontend.sh
+        ./scripts/setup-aws-resources-frontend.sh
+        echo "✅ AWS resources setup completed"
+
+    - name: Validate task definition
+      run: |
+        echo "🔍 Validating task definition..."
+        if [ ! -f "${{ env.ECS_TASK_DEFINITION }}" ]; then
+          echo "❌ Task definition file not found: ${{ env.ECS_TASK_DEFINITION }}"
+          exit 1
+        fi
+        echo "✅ Task definition file exists"
+        
+        # Validate JSON syntax
+        jq . "${{ env.ECS_TASK_DEFINITION }}" > /dev/null
+        if [ $? -eq 0 ]; then
+          echo "✅ Task definition JSON is valid"
+        else
+          echo "❌ Task definition JSON is invalid"
+          exit 1
+        fi
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed to ECS.
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Get AWS Account ID and Build API URL
+      id: account-id
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+        
+        # Build API URL for backend service (using shared ALB)
+        API_URL="http://med-connecter-alb-${ACCOUNT_ID}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/medconnecter"
+        echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+        echo "API URL: $API_URL"
+
+    - name: Fill in the new image ID and replace placeholders in the Amazon ECS task definition
+      id: task-def
+      run: |
+        echo "🔧 Replacing placeholders in task definition..."
+        
+        # Create a copy of the task definition
+        cp ${{ env.ECS_TASK_DEFINITION }} task-definition-rendered.json
+        
+        # Use perl for more robust text replacement
+        perl -pi -e 's/\{\{AWS_ACCOUNT_ID\}\}/$ENV{ACCOUNT_ID}/g' task-definition-rendered.json
+        perl -pi -e 's/\{\{AWS_REGION\}\}/$ENV{AWS_REGION}/g' task-definition-rendered.json
+        perl -pi -e 's/\{\{API_URL\}\}/$ENV{API_URL}/g' task-definition-rendered.json
+        
+        # Replace the image tag placeholder
+        perl -pi -e 's/\{\{IMAGE_TAG\}\}/$ENV{IMAGE_TAG}/g' task-definition-rendered.json
+        
+        echo "✅ Task definition rendered successfully"
+        
+        # Debug: Show the final image URL
+        echo "🔍 DEBUG: Final image URL in task definition:"
+        grep -o '"image": "[^"]*"' task-definition-rendered.json
+        
+        # Output the rendered task definition for the next step
+        echo "task-definition=task-definition-rendered.json" >> $GITHUB_OUTPUT
+      env:
+        ACCOUNT_ID: ${{ steps.account-id.outputs.account_id }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        API_URL: ${{ steps.account-id.outputs.api_url }}
+        IMAGE_TAG: ${{ github.sha }}
+
+    - name: Print Environment Variables (DEBUG - REMOVE LATER)
+      run: |
+        echo "🔍 DEBUG: Environment Variables for Frontend:"
+        echo ""
+        echo "📋 Task Definition Environment Variables:"
+        echo "NODE_ENV: production"
+        printf "REACT_APP_API_URL: %s\n" "${{ steps.account-id.outputs.api_url }}"
+        echo "REACT_APP_ENVIRONMENT: production"
+        echo ""
+        printf "📦 Container Image: %s\n" "${{ steps.build-image.outputs.image }}"
+        printf "🏗️ AWS Account ID: %s\n" "${{ steps.account-id.outputs.account_id }}"
+        printf "🌍 AWS Region: %s\n" "${{ secrets.AWS_REGION }}"
+        echo ""
+        echo "⚠️  WARNING: This step prints information for debugging. REMOVE AFTER DEBUGGING!"
+
+    - name: Check ECS Service Status
+      run: |
+        echo "🔍 Checking ECS service status..."
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SERVICE }} \
+          --region ${{ secrets.AWS_REGION }} \
+          --query 'services[0].status' \
+          --output text 2>/dev/null || echo "NONEXISTENT")
+        
+        echo "Service status: $SERVICE_STATUS"
+        
+        if [ "$SERVICE_STATUS" = "NONEXISTENT" ]; then
+          echo "❌ Service does not exist. Creating it now..."
+          # Get subnet IDs
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text --region ${{ secrets.AWS_REGION }})
+          SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[*].SubnetId' --output text --region ${{ secrets.AWS_REGION }} | tr '\t' ',' | sed 's/,$//')
+          SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=default" --query 'SecurityGroups[0].GroupId' --output text --region ${{ secrets.AWS_REGION }})
+          
+          # Get target group ARN for frontend (port 80)
+          TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups --names "med-connecter-web-tg" --region ${{ secrets.AWS_REGION }} --query 'TargetGroups[0].TargetGroupArn' --output text)
+          
+          # Register task definition
+          aws ecs register-task-definition --cli-input-json file://${{ steps.task-def.outputs.task-definition }} --region ${{ secrets.AWS_REGION }}
+          
+          # Create service with load balancer
+          aws ecs create-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name ${{ env.ECS_SERVICE }} \
+            --task-definition med-connecter-web:1 \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_IDS}],securityGroups=[${SECURITY_GROUP_ID}],assignPublicIp=ENABLED}" \
+            --load-balancers "targetGroupArn=${TARGET_GROUP_ARN},containerName=med-connecter-web,containerPort=80" \
+            --region ${{ secrets.AWS_REGION }}
+          
+          echo "✅ Service created successfully"
+        elif [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+          echo "✅ Service exists and is active"
+        else
+          echo "⚠️ Service status: $SERVICE_STATUS"
+        fi
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: task-definition-rendered.json
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+        wait-for-minutes: 10
+
+    - name: Verify deployment
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🔍 Checking service status..."
+        aws ecs describe-services \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SERVICE }} \
+          --query 'services[0].status' \
+          --output text
+
+    - name: Get Application URLs
+      run: |
+        echo "🌐 Application URLs (Shared Load Balancer):"
+        echo "Frontend: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com"
+        echo "Backend API: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/medconnecter"
+        echo "Frontend Health Check: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/health"
+        echo "Backend Health Check: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/medconnecter/health"
