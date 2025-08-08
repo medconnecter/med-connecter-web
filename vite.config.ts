@@ -13,13 +13,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    allowedHosts: [
-      'med-connecter-alb-*.elb.amazonaws.com',
-      '*.elb.amazonaws.com',
-      'localhost',
-      '127.0.0.1'
-    ],
-    // Allow all hosts in production/container environment
+    allowedHosts: true, // Allow all hosts in container environment
     hmr: {
       host: '0.0.0.0'
     }

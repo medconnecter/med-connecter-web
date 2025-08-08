@@ -16,5 +16,5 @@ COPY . .
 # Expose port 80 (will be mapped from Vite's default 5173)
 EXPOSE 80
 
-# Start development server on port 80 with allowed hosts
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80", "--allowed-hosts", "all"] 
+# Start development server on port 80
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"] 
