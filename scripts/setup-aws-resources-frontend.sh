@@ -122,11 +122,6 @@ create_target_group() {
             --port 80 \
             --vpc-id "${VPC_ID}" \
             --target-type ip \
-            --health-check-path /health \
-            --health-check-interval-seconds 30 \
-            --health-check-timeout-seconds 5 \
-            --healthy-threshold-count 2 \
-            --unhealthy-threshold-count 2 \
             --region "${REGION}" \
             --query 'TargetGroups[0].TargetGroupArn' \
             --output text)
@@ -316,13 +311,11 @@ display_next_steps() {
     echo -e "${GREEN}🌐 Shared Load Balancer DNS: ${ALB_DNS_NAME}${NC}"
     echo -e "${GREEN}🏠 Frontend Application: http://${ALB_DNS_NAME}${NC}"
     echo -e "${GREEN}🔗 Backend API: http://${ALB_DNS_NAME}/medconnecter${NC}"
-    echo -e "${GREEN}🏥 Frontend Health Check: http://${ALB_DNS_NAME}/health${NC}"
-    echo -e "${GREEN}🏥 Backend Health Check: http://${ALB_DNS_NAME}/medconnecter/health${NC}"
     echo ""
     
     echo -e "${YELLOW}📋 Next steps:${NC}"
     echo "1. Push to main branch to trigger deployment"
-    echo "2. Wait for ECS service to be healthy"
+    echo "2. Wait for ECS service to start"
     echo "3. Access your frontend via the load balancer URL above"
     echo ""
     echo -e "${GREEN}✅ Frontend setup complete!${NC}"
@@ -521,31 +514,7 @@ check_container_logs() {
     echo ""
 }
 
-# Function to test health endpoint manually
-test_health_endpoint() {
-    echo -e "${YELLOW}📋 Testing Health Endpoint...${NC}"
-    
-    # Get ALB DNS name
-    ALB_DNS=$(aws elbv2 describe-load-balancers \
-        --names "${PROJECT_NAME}-alb" \
-        --region "${REGION}" \
-        --query 'LoadBalancers[0].DNSName' \
-        --output text)
-    
-    echo -e "ALB DNS: ${ALB_DNS}"
-    
-    # Test health endpoint
-    echo -e "Testing: http://${ALB_DNS}/health"
-    
-    # Try to curl the health endpoint
-    if command -v curl &> /dev/null; then
-        echo -e "${BLUE}Response:${NC}"
-        curl -v --connect-timeout 10 --max-time 30 "http://${ALB_DNS}/health" 2>&1 || echo -e "${RED}❌ Health endpoint not accessible${NC}"
-    else
-        echo -e "${YELLOW}⚠️ curl not available, cannot test health endpoint${NC}"
-    fi
-    echo ""
-}
+
 
 # Function to run debugging only
 debug_only() {

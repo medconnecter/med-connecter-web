@@ -260,5 +260,3 @@ jobs:
         echo "🌐 Application URLs (Shared Load Balancer):"
         echo "Frontend: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com"
         echo "Backend API: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/medconnecter"
-        echo "Frontend Health Check: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/health"
-        echo "Backend Health Check: http://med-connecter-alb-${{ steps.account-id.outputs.account_id }}.${{ secrets.AWS_REGION }}.elb.amazonaws.com/medconnecter/health"
