@@ -1,5 +1,5 @@
-# Build stage
-FROM node:23-alpine AS builder
+# Development mode Dockerfile - uses npm run dev
+FROM node:23-alpine
 
 WORKDIR /app
 
@@ -7,27 +7,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY bun.lockb ./
 
-# Install ALL dependencies (including dev dependencies needed for build)
-# Remove --only=production flag to include dev dependencies like Vite
+# Install ALL dependencies (including dev dependencies)
 RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build:prod
-
-# Production stage
-FROM nginx:alpine AS production
-
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose port 80
+# Expose port 80 (will be mapped from Vite's default 5173)
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"] 
+# Start development server on port 80
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"] 
